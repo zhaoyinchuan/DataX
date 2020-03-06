@@ -359,7 +359,7 @@ public class CommonRdbmsWriter {
             } catch (SQLException e) {
                 LOG.warn("回滚此次写入, 采用每次写入一行方式提交. 因为:" + e.getMessage());
                 connection.rollback();
-                doOneInsert(connection, buffer);
+                //doOneInsert(connection, buffer);
             } catch (Exception e) {
                 throw DataXException.asDataXException(
                         DBUtilErrorCode.WRITE_DATA_ERROR, e);
