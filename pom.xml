@@ -47,15 +47,15 @@
 
         <!-- reader -->
         <module>mysqlreader</module>
-        <module>drdsreader</module>
         <module>sqlserverreader</module>
-        <module>postgresqlreader</module>
         <module>oraclereader</module>
+        <module>hdfsreader</module>
+        <module>txtfilereader</module>
+        <module>drdsreader</module>
+        <module>postgresqlreader</module>
         <module>odpsreader</module>
         <module>otsreader</module>
         <module>otsstreamreader</module>
-        <module>txtfilereader</module>
-        <module>hdfsreader</module>
         <module>streamreader</module>
         <module>ossreader</module>
         <module>ftpreader</module>
@@ -69,15 +69,15 @@
 
         <!-- writer -->
         <module>mysqlwriter</module>
+        <module>sqlserverwriter</module>
+        <module>oraclewriter</module>
+        <module>hdfswriter</module>
+        <module>txtfilewriter</module>
         <module>drdswriter</module>
         <module>odpswriter</module>
-        <module>txtfilewriter</module>
         <module>ftpwriter</module>
-        <module>hdfswriter</module>
         <module>streamwriter</module>
         <module>otswriter</module>
-        <module>oraclewriter</module>
-        <module>sqlserverwriter</module>
         <module>postgresqlwriter</module>
         <module>osswriter</module>
         <module>mongodbwriter</module>
