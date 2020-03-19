@@ -371,7 +371,7 @@ public class CommonRdbmsWriter {
         protected void doOneInsert(Connection connection, List<Record> buffer) {
             PreparedStatement preparedStatement = null;
             try {
-                connection.setAutoCommit(true);
+                connection.setAutoCommit(false);
                 preparedStatement = connection
                         .prepareStatement(this.writeRecordSql);
 
@@ -382,9 +382,9 @@ public class CommonRdbmsWriter {
                         preparedStatement.execute();
                     } catch (SQLException e) {
                         LOG.debug(e.toString());
-
                         this.taskPluginCollector.collectDirtyRecord(record, e);
                     } finally {
+                        connection.rollback();
                         // 最后不要忘了关闭 preparedStatement
                         preparedStatement.clearParameters();
                     }
