@@ -8,6 +8,7 @@
         "column": [],
         "writeMode": "",
         "fieldDelimiter": "",
-        "compress":""
+        "compress":"",
+        "partition":""
     }
 }

@@ -33,4 +33,6 @@ public class Key {
     public static final String KERBEROS_PRINCIPAL = "kerberosPrincipal";
     // hadoop config
     public static final String HADOOP_CONFIG = "hadoopConfig";
+    // not must, default false
+    public static final String PARTITION = "partition";
 }

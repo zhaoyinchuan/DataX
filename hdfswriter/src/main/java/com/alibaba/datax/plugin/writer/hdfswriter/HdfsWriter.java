@@ -326,6 +326,7 @@ public class HdfsWriter extends Writer {
         private String defaultFS;
         private String fileType;
         private String fileName;
+        private String partition;
 
         private HdfsHelper hdfsHelper = null;
 
@@ -337,6 +338,7 @@ public class HdfsWriter extends Writer {
             this.fileType = this.writerSliceConfig.getString(Key.FILE_TYPE);
             //得当的已经是绝对路径，eg：hdfs://10.101.204.12:9000/user/hive/warehouse/writer.db/text/test.textfile
             this.fileName = this.writerSliceConfig.getString(Key.FILE_NAME);
+            this.partition = this.writerSliceConfig.getString(Key.PARTITION);
 
             hdfsHelper = new HdfsHelper();
             hdfsHelper.getFileSystem(defaultFS, writerSliceConfig);
@@ -352,13 +354,23 @@ public class HdfsWriter extends Writer {
             LOG.info("begin do write...");
             LOG.info(String.format("write to file : [%s]", this.fileName));
             if(fileType.equalsIgnoreCase("TEXT")){
-                //写TEXT FILE
-                hdfsHelper.textFileStartWrite(lineReceiver,this.writerSliceConfig, this.fileName,
+                if (this.partition.equalsIgnoreCase("TRUE")) {
+                    hdfsHelper.textFileStartWritePartition(lineReceiver,this.writerSliceConfig, this.fileName,
                         this.getTaskPluginCollector());
+                } else {
+                    //写TEXT FILE
+                    hdfsHelper.textFileStartWrite(lineReceiver,this.writerSliceConfig, this.fileName,
+                        this.getTaskPluginCollector());
+                }
             }else if(fileType.equalsIgnoreCase("ORC")){
-                //写ORC FILE
-                hdfsHelper.orcFileStartWrite(lineReceiver,this.writerSliceConfig, this.fileName,
+                if (this.partition.equalsIgnoreCase("TRUE")) {
+                    hdfsHelper.orcFileStartWritePartition(lineReceiver,this.writerSliceConfig, this.fileName,
                         this.getTaskPluginCollector());
+                } else {
+                    //写ORC FILE
+                    hdfsHelper.orcFileStartWrite(lineReceiver,this.writerSliceConfig, this.fileName,
+                        this.getTaskPluginCollector());
+                }
             }
 
             LOG.info("end do write");

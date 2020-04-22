@@ -9,6 +9,8 @@ import com.alibaba.datax.common.util.Configuration;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.hadoop.fs.*;
@@ -318,6 +320,63 @@ public  class HdfsHelper {
         }
     }
 
+    /**
+     * 分区写textfile类型文件
+     * @param lineReceiver
+     * @param config
+     * @param fileName
+     * @param taskPluginCollector
+     */
+    public void textFileStartWritePartition(RecordReceiver lineReceiver, Configuration config, String fileName,
+        TaskPluginCollector taskPluginCollector){
+        char fieldDelimiter = config.getChar(Key.FIELD_DELIMITER);
+        List<Configuration>  columns = config.getListConfiguration(Key.COLUMN);
+        String compress = config.getString(Key.COMPRESS,null);
+
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmm");
+        String attempt = "attempt_"+dateFormat.format(new Date())+"_0001_m_000000_0";
+        Path outputPath = new Path(fileName);
+        //todo 需要进一步确定TASK_ATTEMPT_ID
+        conf.set(JobContext.TASK_ATTEMPT_ID, attempt);
+        FileOutputFormat outFormat = new TextOutputFormat();
+        outFormat.setOutputPath(conf, outputPath);
+        outFormat.setWorkOutputPath(conf, outputPath);
+        if(null != compress) {
+            Class<? extends CompressionCodec> codecClass = getCompressCodec(compress);
+            if (null != codecClass) {
+                outFormat.setOutputCompressorClass(conf, codecClass);
+            }
+        }
+        try {
+            Map<String, RecordWriter> writerMap = Maps.newHashMap();
+            Record record = null;
+            while ((record = lineReceiver.getFromReader()) != null) {
+                PartitionResult partitionResult = transportOneRecordPartition(record,columns,taskPluginCollector);
+                String ptDay = partitionResult.getPartition();
+                MutablePair<List<Object>, Boolean> transportResult = partitionResult.getTransportResult();
+                RecordWriter writer = writerMap.get(ptDay);
+                if (writer == null) {
+                    String partitionName = "/pt_day=" + ptDay;
+                    writer = outFormat.getRecordWriter(fileSystem, conf, outputPath.toString() + partitionName, Reporter.NULL);
+                    writerMap.put(ptDay, writer);
+                }
+                if (!transportResult.getRight()) {
+                    writer.write(NullWritable.get(),transportResult.getLeft());
+                }
+
+            }
+            for (RecordWriter closeWriter : writerMap.values()) {
+                closeWriter.close(Reporter.NULL);
+            }
+        } catch (Exception e) {
+            String message = String.format("写文件文件[%s]时发生IO异常,请检查您的网络是否正常！", fileName);
+            LOG.error(message);
+            Path path = new Path(fileName);
+            deleteDir(path.getParent());
+            throw DataXException.asDataXException(HdfsWriterErrorCode.Write_FILE_IO_ERROR, e);
+        }
+    }
+
     public static MutablePair<Text, Boolean> transportOneRecord(
             Record record, char fieldDelimiter, List<Configuration> columnsConfiguration, TaskPluginCollector taskPluginCollector) {
         MutablePair<List<Object>, Boolean> transportResultList =  transportOneRecord(record,columnsConfiguration,taskPluginCollector);
@@ -387,6 +446,61 @@ public  class HdfsHelper {
                 }
             }
             writer.close(Reporter.NULL);
+        } catch (Exception e) {
+            String message = String.format("写文件文件[%s]时发生IO异常,请检查您的网络是否正常！", fileName);
+            LOG.error(message);
+            Path path = new Path(fileName);
+            deleteDir(path.getParent());
+            throw DataXException.asDataXException(HdfsWriterErrorCode.Write_FILE_IO_ERROR, e);
+        }
+    }
+
+    /**
+     * 分区写orcfile类型文件
+     * @param lineReceiver
+     * @param config
+     * @param fileName
+     * @param taskPluginCollector
+     */
+    public void orcFileStartWritePartition(RecordReceiver lineReceiver, Configuration config, String fileName,
+        TaskPluginCollector taskPluginCollector){
+        List<Configuration>  columns = config.getListConfiguration(Key.COLUMN);
+        String compress = config.getString(Key.COMPRESS, null);
+        List<String> columnNames = getColumnNames(columns);
+        List<ObjectInspector> columnTypeInspectors = getColumnTypeInspectors(columns);
+        StructObjectInspector inspector = (StructObjectInspector)ObjectInspectorFactory
+            .getStandardStructObjectInspector(columnNames, columnTypeInspectors);
+
+        OrcSerde orcSerde = new OrcSerde();
+
+        FileOutputFormat outFormat = new OrcOutputFormat();
+        if(!"NONE".equalsIgnoreCase(compress) && null != compress ) {
+            Class<? extends CompressionCodec> codecClass = getCompressCodec(compress);
+            if (null != codecClass) {
+                outFormat.setOutputCompressorClass(conf, codecClass);
+            }
+        }
+        try {
+            Map<String, RecordWriter> writerMap = Maps.newHashMap();
+            Record record = null;
+            while ((record = lineReceiver.getFromReader()) != null) {
+                PartitionResult partitionResult = transportOneRecordPartition(record,columns,taskPluginCollector);
+                String ptDay = partitionResult.getPartition();
+                MutablePair<List<Object>, Boolean> transportResult = partitionResult.getTransportResult();
+                RecordWriter writer = writerMap.get(ptDay);
+                if (writer == null) {
+                    String partitionName = "/pt_day=" + ptDay;
+                    writer = outFormat.getRecordWriter(fileSystem, conf, fileName + partitionName, Reporter.NULL);
+                    writerMap.put(ptDay, writer);
+                }
+                if (!transportResult.getRight()) {
+                    writer.write(NullWritable.get(), orcSerde.serialize(transportResult.getLeft(), inspector));
+                }
+
+            }
+            for (RecordWriter closeWriter : writerMap.values()) {
+                closeWriter.close(Reporter.NULL);
+            }
         } catch (Exception e) {
             String message = String.format("写文件文件[%s]时发生IO异常,请检查您的网络是否正常！", fileName);
             LOG.error(message);
@@ -555,5 +669,98 @@ public  class HdfsHelper {
         }
         transportResult.setLeft(recordList);
         return transportResult;
+    }
+
+    public static PartitionResult transportOneRecordPartition(
+        Record record,List<Configuration> columnsConfiguration,
+        TaskPluginCollector taskPluginCollector){
+
+        PartitionResult partitionResult = null;
+        String partition = null;
+        MutablePair<List<Object>, Boolean> transportResult = new MutablePair<List<Object>, Boolean>();
+        transportResult.setRight(false);
+        List<Object> recordList = Lists.newArrayList();
+        int recordLength = record.getColumnNumber();
+        if (0 != recordLength) {
+            Column column;
+            for (int i = 0; i < recordLength; i++) {
+                column = record.getColumn(i);
+                //todo as method
+                if (null != column.getRawData()) {
+                    String rowData = column.getRawData().toString();
+                    if (i == 0) {
+                        partition = rowData;
+                    }
+                    SupportHiveDataType columnType = SupportHiveDataType.valueOf(
+                        columnsConfiguration.get(i).getString(Key.TYPE).toUpperCase());
+                    //根据writer端类型配置做类型转换
+                    try {
+                        switch (columnType) {
+                            case TINYINT:
+                                recordList.add(Byte.valueOf(rowData));
+                                break;
+                            case SMALLINT:
+                                recordList.add(Short.valueOf(rowData));
+                                break;
+                            case INT:
+                                recordList.add(Integer.valueOf(rowData));
+                                break;
+                            case BIGINT:
+                                recordList.add(column.asLong());
+                                break;
+                            case FLOAT:
+                                recordList.add(Float.valueOf(rowData));
+                                break;
+                            case DOUBLE:
+                                recordList.add(column.asDouble());
+                                break;
+                            case STRING:
+                            case VARCHAR:
+                            case CHAR:
+                                recordList.add(column.asString());
+                                break;
+                            case BOOLEAN:
+                                recordList.add(column.asBoolean());
+                                break;
+                            case DATE:
+                                recordList.add(new java.sql.Date(column.asDate().getTime()));
+                                break;
+                            case TIMESTAMP:
+                                recordList.add(new java.sql.Timestamp(column.asDate().getTime()));
+                                break;
+                            default:
+                                throw DataXException
+                                    .asDataXException(
+                                        HdfsWriterErrorCode.ILLEGAL_VALUE,
+                                        String.format(
+                                            "您的配置文件中的列配置信息有误. 因为DataX 不支持数据库写入这种字段类型. 字段名:[%s], 字段类型:[%d]. 请修改表中该字段的类型或者不同步该字段.",
+                                            columnsConfiguration.get(i).getString(Key.NAME),
+                                            columnsConfiguration.get(i).getString(Key.TYPE)));
+                        }
+                    } catch (Exception e) {
+                        // warn: 此处认为脏数据
+                        String message = String.format(
+                            "字段类型转换错误：你目标字段为[%s]类型，实际字段值为[%s].",
+                            columnsConfiguration.get(i).getString(Key.TYPE), column.getRawData().toString());
+                        taskPluginCollector.collectDirtyRecord(record, message);
+                        transportResult.setRight(true);
+                        break;
+                    }
+                }else {
+                    // warn: it's all ok if nullFormat is null
+                    recordList.add(null);
+                }
+            }
+        }
+        transportResult.setLeft(recordList);
+        if (partition != null) {
+            partitionResult = new PartitionResult();
+            partitionResult.setPartition(partition);
+            partitionResult.setTransportResult(transportResult);
+        } else {
+            throw DataXException
+                .asDataXException(HdfsWriterErrorCode.ILLEGAL_VALUE, "未获取分区值");
+        }
+        return partitionResult;
     }
 }
