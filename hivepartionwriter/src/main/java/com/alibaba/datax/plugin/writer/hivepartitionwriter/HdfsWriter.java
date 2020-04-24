@@ -1,11 +1,5 @@
-package com.alibaba.datax.plugin.writer.hdfswriter;
+package com.alibaba.datax.plugin.writer.hivepartitionwriter;
 
-import com.alibaba.datax.common.exception.DataXException;
-import com.alibaba.datax.common.plugin.RecordReceiver;
-import com.alibaba.datax.common.spi.Writer;
-import com.alibaba.datax.common.util.Configuration;
-import com.alibaba.datax.plugin.unstructuredstorage.writer.Constant;
-import com.google.common.collect.Sets;
 import org.apache.commons.io.Charsets;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -13,8 +7,19 @@ import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import com.alibaba.datax.common.exception.DataXException;
+import com.alibaba.datax.common.plugin.RecordReceiver;
+import com.alibaba.datax.common.spi.Writer;
+import com.alibaba.datax.common.util.Configuration;
+import com.alibaba.datax.plugin.unstructuredstorage.writer.Constant;
+import com.google.common.collect.Sets;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 public class HdfsWriter extends Writer {
     public static class Job extends Writer.Job {
@@ -184,7 +189,7 @@ public class HdfsWriter extends Writer {
 
         @Override
         public void post() {
-            hdfsHelper.renameFile(tmpFiles, endFiles);
+            //hdfsHelper.renameFile(tmpFiles, endFiles);
         }
 
         @Override
@@ -196,7 +201,7 @@ public class HdfsWriter extends Writer {
         public List<Configuration> split(int mandatoryNumber) {
             LOG.info("begin do split...");
             List<Configuration> writerSplitConfigs = new ArrayList<Configuration>();
-            String filePrefix = fileName;
+            // String filePrefix = fileName;
 
             Set<String> allFiles = new HashSet<String>();
 
@@ -205,12 +210,12 @@ public class HdfsWriter extends Writer {
                 allFiles.addAll(Arrays.asList(hdfsHelper.hdfsDirList(path)));
             }
 
-            String fileSuffix;
+           /* String fileSuffix;
             //临时存放路径
             String storePath =  buildTmpFilePath(this.path);
             //最终存放路径
             String endStorePath = buildFilePath();
-            this.path = endStorePath;
+            this.path = endStorePath;*/
             for (int i = 0; i < mandatoryNumber; i++) {
                 // handle same file name
 
@@ -218,17 +223,17 @@ public class HdfsWriter extends Writer {
                 String fullFileName = null;
                 String endFullFileName = null;
 
-                fileSuffix = UUID.randomUUID().toString().replace('-', '_');
+                //fileSuffix = UUID.randomUUID().toString().replace('-', '_');
 
-                fullFileName = String.format("%s%s%s__%s", defaultFS, storePath, filePrefix, fileSuffix);
-                endFullFileName = String.format("%s%s%s__%s", defaultFS, endStorePath, filePrefix, fileSuffix);
+                fullFileName = String.format("%s%s", defaultFS, this.path);
+                endFullFileName = String.format("%s%s", defaultFS, this.path);
 
-                while (allFiles.contains(endFullFileName)) {
+                /*while (allFiles.contains(endFullFileName)) {
                     fileSuffix = UUID.randomUUID().toString().replace('-', '_');
                     fullFileName = String.format("%s%s%s__%s", defaultFS, storePath, filePrefix, fileSuffix);
                     endFullFileName = String.format("%s%s%s__%s", defaultFS, endStorePath, filePrefix, fileSuffix);
                 }
-                allFiles.add(endFullFileName);
+                allFiles.add(endFullFileName);*/
 
                 //设置临时文件全路径和最终文件全路径
                 if("GZIP".equalsIgnoreCase(this.compress)){
@@ -352,13 +357,11 @@ public class HdfsWriter extends Writer {
             LOG.info("begin do write...");
             LOG.info(String.format("write to file : [%s]", this.fileName));
             if(fileType.equalsIgnoreCase("TEXT")){
-                //写TEXT FILE
-                hdfsHelper.textFileStartWrite(lineReceiver,this.writerSliceConfig, this.fileName,
-                        this.getTaskPluginCollector());
+                hdfsHelper.textFileStartWritePartition(lineReceiver,this.writerSliceConfig, this.fileName,
+                    this.getTaskPluginCollector());
             }else if(fileType.equalsIgnoreCase("ORC")){
-                //写ORC FILE
-                hdfsHelper.orcFileStartWrite(lineReceiver,this.writerSliceConfig, this.fileName,
-                        this.getTaskPluginCollector());
+                hdfsHelper.orcFileStartWritePartition(lineReceiver,this.writerSliceConfig, this.fileName,
+                    this.getTaskPluginCollector());
             }
 
             LOG.info("end do write");

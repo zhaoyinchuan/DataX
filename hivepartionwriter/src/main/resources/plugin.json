@@ -1,0 +1,6 @@
+{
+    "name": "hivepartionwriter",
+    "class": "com.alibaba.datax.plugin.writer.hivepartitionwriter.HdfsWriter",
+    "description": "useScene: prod. mechanism: via FileSystem connect HDFS write data concurrent.",
+    "developer": "alibaba"
+}

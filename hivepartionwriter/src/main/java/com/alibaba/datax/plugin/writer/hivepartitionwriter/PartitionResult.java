@@ -1,8 +1,6 @@
-package com.alibaba.datax.plugin.writer.hdfswriter;
+package com.alibaba.datax.plugin.writer.hivepartitionwriter;
 
 import org.apache.commons.lang3.tuple.MutablePair;
-
-import java.util.List;
 
 /**
  * @Description: PartitionResult
@@ -10,11 +8,11 @@ import java.util.List;
  * @Date: Created in 3:45 PM 2020/4/22
  * @Version: V1.0
  */
-public class PartitionResult {
+public class PartitionResult<T> {
 
     private String partition;
 
-    private MutablePair<List<Object>, Boolean> transportResult;
+    private MutablePair<T, Boolean> transportResult;
 
     public String getPartition() {
         return partition;
@@ -24,12 +22,12 @@ public class PartitionResult {
         this.partition = partition;
     }
 
-    public MutablePair<List<Object>, Boolean> getTransportResult() {
+    public MutablePair<T, Boolean> getTransportResult() {
         return transportResult;
     }
 
     public void setTransportResult(
-        final MutablePair<List<Object>, Boolean> transportResult) {
+        final MutablePair<T, Boolean> transportResult) {
         this.transportResult = transportResult;
     }
 }
