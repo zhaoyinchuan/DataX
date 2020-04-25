@@ -32,7 +32,7 @@
             </includes>
             <outputDirectory>datax</outputDirectory>
         </fileSet>
-        <fileSet>
+        <!--<fileSet>
             <directory>oceanbasereader/target/datax/</directory>
             <includes>
                 <include>**/*.*</include>
@@ -102,7 +102,7 @@
                  <include>**/*.*</include>
              </includes>
              <outputDirectory>datax</outputDirectory>
-         </fileSet>
+         </fileSet>-->
         <fileSet>
             <directory>txtfilereader/target/datax/</directory>
             <includes>
@@ -110,13 +110,13 @@
             </includes>
             <outputDirectory>datax</outputDirectory>
         </fileSet>
-        <fileSet>
+        <!--<fileSet>
             <directory>ossreader/target/datax/</directory>
             <includes>
                 <include>**/*.*</include>
             </includes>
             <outputDirectory>datax</outputDirectory>
-        </fileSet>
+        </fileSet>-->
         <fileSet>
             <directory>mongodbreader/target/datax/</directory>
             <includes>
@@ -124,7 +124,7 @@
             </includes>
             <outputDirectory>datax</outputDirectory>
         </fileSet>
-        <fileSet>
+        <!--<fileSet>
             <directory>streamreader/target/datax/</directory>
             <includes>
                 <include>**/*.*</include>
@@ -137,7 +137,7 @@
                 <include>**/*.*</include>
             </includes>
             <outputDirectory>datax</outputDirectory>
-        </fileSet>
+        </fileSet>-->
         <fileSet>
             <directory>hdfsreader/target/datax/</directory>
             <includes>
@@ -145,7 +145,7 @@
             </includes>
             <outputDirectory>datax</outputDirectory>
         </fileSet>
-        <fileSet>
+        <!--<fileSet>
             <directory>hbase11xreader/target/datax/</directory>
             <includes>
                 <include>**/*.*</include>
@@ -172,7 +172,7 @@
                 <include>**/*.*</include>
             </includes>
             <outputDirectory>datax</outputDirectory>
-        </fileSet>
+        </fileSet>-->
 
         <!-- writer -->
         <fileSet>
@@ -182,7 +182,7 @@
             </includes>
             <outputDirectory>datax</outputDirectory>
         </fileSet>
-        <fileSet>
+        <!--<fileSet>
             <directory>drdswriter/target/datax/</directory>
             <includes>
                 <include>**/*.*</include>
@@ -195,7 +195,7 @@
                 <include>**/*.*</include>
             </includes>
             <outputDirectory>datax</outputDirectory>
-        </fileSet>
+        </fileSet>-->
         <fileSet>
             <directory>txtfilewriter/target/datax/</directory>
             <includes>
@@ -203,7 +203,7 @@
             </includes>
             <outputDirectory>datax</outputDirectory>
         </fileSet>
-        <fileSet>
+        <!--<fileSet>
             <directory>ftpwriter/target/datax/</directory>
             <includes>
                 <include>**/*.*</include>
@@ -237,7 +237,7 @@
                 <include>**/*.*</include>
             </includes>
             <outputDirectory>datax</outputDirectory>
-        </fileSet>
+        </fileSet>-->
         <fileSet>
             <directory>mongodbwriter/target/datax/</directory>
             <includes>
@@ -245,7 +245,7 @@
             </includes>
             <outputDirectory>datax</outputDirectory>
         </fileSet>
-		<fileSet>
+		<!--<fileSet>
             <directory>oraclewriter/target/datax/</directory>
             <includes>
                 <include>**/*.*</include>
@@ -279,7 +279,7 @@
                 <include>**/*.*</include>
             </includes>
             <outputDirectory>datax</outputDirectory>
-        </fileSet>
+        </fileSet>-->
         <fileSet>
             <directory>hdfswriter/target/datax/</directory>
             <includes>
@@ -294,7 +294,7 @@
             </includes>
             <outputDirectory>datax</outputDirectory>
         </fileSet>
-        <fileSet>
+        <!--<fileSet>
             <directory>hbase11xwriter/target/datax/</directory>
             <includes>
                 <include>**/*.*</include>
@@ -363,6 +363,6 @@
                 <include>**/*.*</include>
             </includes>
             <outputDirectory>datax</outputDirectory>
-        </fileSet>
+        </fileSet>-->
     </fileSets>
 </assembly>

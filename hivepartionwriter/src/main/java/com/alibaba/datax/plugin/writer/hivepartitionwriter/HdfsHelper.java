@@ -341,7 +341,7 @@ public  class HdfsHelper {
      * 分区写textfile类型文件
      * @param lineReceiver
      * @param config
-     * @param fileName
+     * @param fileName 到tablename为止
      * @param taskPluginCollector
      */
     public void textFileStartWritePartition(RecordReceiver lineReceiver, Configuration config, String fileName,
@@ -360,8 +360,10 @@ public  class HdfsHelper {
                 MutablePair<Text, Boolean> transportResult = partitionResult.getTransportResult();
                 RecordWriter writer = writerMap.get(ptDay);
                 if (writer == null) {
-                    String partitionName = "/" + ptDay + "_" + System.currentTimeMillis();
-                    partitonFileName = fileName + partitionName;
+                    StringBuilder partitonNameBuilder = new StringBuilder();
+                    partitonNameBuilder.append("/pt_day=").append(ptDay)
+                                       .append("/").append(ptDay).append("_").append(System.currentTimeMillis());
+                    partitonFileName = fileName + partitonNameBuilder.toString();
                     LOG.info(">>>>>>>partitonFileName is :" + partitonFileName);
                     SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmm");
                     String attempt = "attempt_"+dateFormat.format(new Date())+"_0001_m_000000_0";
@@ -502,7 +504,7 @@ public  class HdfsHelper {
      * 分区写orcfile类型文件
      * @param lineReceiver
      * @param config
-     * @param fileName
+     * @param fileName 到tablename为止
      * @param taskPluginCollector
      */
     public void orcFileStartWritePartition(RecordReceiver lineReceiver, Configuration config, String fileName,
@@ -533,8 +535,10 @@ public  class HdfsHelper {
                 MutablePair<List<Object>, Boolean> transportResult = partitionResult.getTransportResult();
                 RecordWriter writer = writerMap.get(ptDay);
                 if (writer == null) {
-                    String partitionName = "/" + ptDay + "_" + System.currentTimeMillis();
-                    partitonFileName = fileName + partitionName;
+                    StringBuilder partitonNameBuilder = new StringBuilder();
+                    partitonNameBuilder.append("/pt_day=").append(ptDay)
+                                       .append("/").append(ptDay).append("_").append(System.currentTimeMillis());
+                    partitonFileName = fileName + partitonNameBuilder.toString();
                     writer = outFormat.getRecordWriter(fileSystem, conf, partitonFileName, Reporter.NULL);
                     writerMap.put(ptDay, writer);
                 }
@@ -736,7 +740,7 @@ public  class HdfsHelper {
                 if (null != column.getRawData()) {
                     String rowData = column.getRawData().toString();
                     if (i == 0) {
-                        partition = rowData;
+                        partition = rowData; continue;
                     }
                     SupportHiveDataType columnType = SupportHiveDataType.valueOf(
                         columnsConfiguration.get(i).getString(Key.TYPE).toUpperCase());
