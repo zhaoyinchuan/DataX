@@ -380,6 +380,7 @@ public class CommonRdbmsWriter {
                         preparedStatement = fillPreparedStatement(
                                 preparedStatement, record);
                         preparedStatement.execute();
+                        connection.commit();
                     } catch (SQLException e) {
                         LOG.debug(e.toString());
                         this.taskPluginCollector.collectDirtyRecord(record, e);

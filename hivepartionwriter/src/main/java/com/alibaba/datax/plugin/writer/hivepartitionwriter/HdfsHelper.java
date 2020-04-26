@@ -2,7 +2,6 @@ package com.alibaba.datax.plugin.writer.hivepartitionwriter;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.MutablePair;
-import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.GlobFilter;
@@ -40,11 +39,8 @@ import com.google.common.collect.Maps;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
 
 public  class HdfsHelper {
@@ -223,47 +219,6 @@ public  class HdfsHelper {
         LOG.info(String.format("finish delete tmp dir [%s] .",path.toString()));
     }
 
-    public void renameFile(HashSet<String> tmpFiles, HashSet<String> endFiles){
-        Path tmpFilesParent = null;
-        if(tmpFiles.size() != endFiles.size()){
-            String message = String.format("临时目录下文件名个数与目标文件名个数不一致!");
-            LOG.error(message);
-            throw DataXException.asDataXException(HdfsWriterErrorCode.HDFS_RENAME_FILE_ERROR, message);
-        }else{
-            try{
-                for (Iterator it1=tmpFiles.iterator(),it2=endFiles.iterator();it1.hasNext()&&it2.hasNext();){
-                    String srcFile = it1.next().toString();
-                    String dstFile = it2.next().toString();
-                    Path srcFilePah = new Path(srcFile);
-                    Path dstFilePah = new Path(dstFile);
-                    if(tmpFilesParent == null){
-                        tmpFilesParent = srcFilePah.getParent();
-                    }
-                    LOG.info(String.format("start rename file [%s] to file [%s].", srcFile,dstFile));
-                    boolean renameTag = false;
-                    long fileLen = fileSystem.getFileStatus(srcFilePah).getLen();
-                    if(fileLen>0){
-                        renameTag = fileSystem.rename(srcFilePah,dstFilePah);
-                        if(!renameTag){
-                            String message = String.format("重命名文件[%s]失败,请检查您的网络是否正常！", srcFile);
-                            LOG.error(message);
-                            throw DataXException.asDataXException(HdfsWriterErrorCode.HDFS_RENAME_FILE_ERROR, message);
-                        }
-                        LOG.info(String.format("finish rename file [%s] to file [%s].", srcFile,dstFile));
-                    }else{
-                        LOG.info(String.format("文件［%s］内容为空,请检查写入是否正常！", srcFile));
-                    }
-                }
-            }catch (Exception e) {
-                String message = String.format("重命名文件时发生异常,请检查您的网络是否正常！");
-                LOG.error(message);
-                throw DataXException.asDataXException(HdfsWriterErrorCode.CONNECT_HDFS_IO_ERROR, e);
-            }finally {
-                deleteDir(tmpFilesParent);
-            }
-        }
-    }
-
     //关闭FileSystem
     public void closeFileSystem(){
         try {
@@ -272,68 +227,6 @@ public  class HdfsHelper {
             String message = String.format("关闭FileSystem时发生IO异常,请检查您的网络是否正常！");
             LOG.error(message);
             throw DataXException.asDataXException(HdfsWriterErrorCode.CONNECT_HDFS_IO_ERROR, e);
-        }
-    }
-
-
-    //textfile格式文件
-    public  FSDataOutputStream getOutputStream(String path){
-        Path storePath = new Path(path);
-        FSDataOutputStream fSDataOutputStream = null;
-        try {
-            fSDataOutputStream = fileSystem.create(storePath);
-        } catch (IOException e) {
-            String message = String.format("Create an FSDataOutputStream at the indicated Path[%s] failed: [%s]",
-                    "message:path =" + path);
-            LOG.error(message);
-            throw DataXException.asDataXException(HdfsWriterErrorCode.Write_FILE_IO_ERROR, e);
-        }
-        return fSDataOutputStream;
-    }
-
-    /**
-     * 写textfile类型文件
-     * @param lineReceiver
-     * @param config
-     * @param fileName
-     * @param taskPluginCollector
-     */
-    public void textFileStartWrite(RecordReceiver lineReceiver, Configuration config, String fileName,
-                                   TaskPluginCollector taskPluginCollector){
-        char fieldDelimiter = config.getChar(Key.FIELD_DELIMITER);
-        List<Configuration>  columns = config.getListConfiguration(Key.COLUMN);
-        String compress = config.getString(Key.COMPRESS,null);
-
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmm");
-        String attempt = "attempt_"+dateFormat.format(new Date())+"_0001_m_000000_0";
-        Path outputPath = new Path(fileName);
-        //todo 需要进一步确定TASK_ATTEMPT_ID
-        conf.set(JobContext.TASK_ATTEMPT_ID, attempt);
-        FileOutputFormat outFormat = new TextOutputFormat();
-        outFormat.setOutputPath(conf, outputPath);
-        outFormat.setWorkOutputPath(conf, outputPath);
-        if(null != compress) {
-            Class<? extends CompressionCodec> codecClass = getCompressCodec(compress);
-            if (null != codecClass) {
-                outFormat.setOutputCompressorClass(conf, codecClass);
-            }
-        }
-        try {
-            RecordWriter writer = outFormat.getRecordWriter(fileSystem, conf, outputPath.toString(), Reporter.NULL);
-            Record record = null;
-            while ((record = lineReceiver.getFromReader()) != null) {
-                MutablePair<Text, Boolean> transportResult = transportOneRecord(record, fieldDelimiter, columns, taskPluginCollector);
-                if (!transportResult.getRight()) {
-                    writer.write(NullWritable.get(),transportResult.getLeft());
-                }
-            }
-            writer.close(Reporter.NULL);
-        } catch (Exception e) {
-            String message = String.format("写文件文件[%s]时发生IO异常,请检查您的网络是否正常！", fileName);
-            LOG.error(message);
-            Path path = new Path(fileName);
-            deleteDir(path.getParent());
-            throw DataXException.asDataXException(HdfsWriterErrorCode.Write_FILE_IO_ERROR, e);
         }
     }
 
@@ -364,7 +257,7 @@ public  class HdfsHelper {
                     partitonNameBuilder.append("/pt_day=").append(ptDay)
                                        .append("/").append(ptDay).append("_").append(System.currentTimeMillis());
                     partitonFileName = fileName + partitonNameBuilder.toString();
-                    LOG.info(">>>>>>>partitonFileName is :" + partitonFileName);
+                    // LOG.info(">>>>>>>partitonFileName is :" + partitonFileName);
                     SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmm");
                     String attempt = "attempt_"+dateFormat.format(new Date())+"_0001_m_000000_0";
                     Path outputPath = new Path(partitonFileName);
@@ -379,12 +272,12 @@ public  class HdfsHelper {
                             outFormat.setOutputCompressorClass(conf, codecClass);
                         }
                     }
-                    LOG.info(">>>>>>>outputPath is :" + outputPath.toString());
+                    // LOG.info(">>>>>>>outputPath is :" + outputPath.toString());
                     writer = outFormat.getRecordWriter(fileSystem, conf, outputPath.toString(), Reporter.NULL);
                     writerMap.put(ptDay, writer);
                 }
                 if (!transportResult.getRight()) {
-                    LOG.info(">>>>>>>>>record be writted is :" + JSON.toJSONString(transportResult.getLeft()));
+                    // LOG.info(">>>>>>>>>record be writted is :" + JSON.toJSONString(transportResult.getLeft()));
                     writer.write(NullWritable.get(),transportResult.getLeft());
                 }
 
@@ -399,20 +292,6 @@ public  class HdfsHelper {
             deleteDir(path.getParent());*/
             throw DataXException.asDataXException(HdfsWriterErrorCode.Write_FILE_IO_ERROR, e);
         }
-    }
-
-    public static MutablePair<Text, Boolean> transportOneRecord(
-            Record record, char fieldDelimiter, List<Configuration> columnsConfiguration, TaskPluginCollector taskPluginCollector) {
-        MutablePair<List<Object>, Boolean> transportResultList =  transportOneRecord(record,columnsConfiguration,taskPluginCollector);
-        //保存<转换后的数据,是否是脏数据>
-        MutablePair<Text, Boolean> transportResult = new MutablePair<Text, Boolean>();
-        transportResult.setRight(false);
-        if(null != transportResultList){
-            Text recordResult = new Text(StringUtils.join(transportResultList.getLeft(), fieldDelimiter));
-            transportResult.setRight(transportResultList.getRight());
-            transportResult.setLeft(recordResult);
-        }
-        return transportResult;
     }
 
     // text file partition overwrite
@@ -457,50 +336,6 @@ public  class HdfsHelper {
     }
 
     /**
-     * 写orcfile类型文件
-     * @param lineReceiver
-     * @param config
-     * @param fileName
-     * @param taskPluginCollector
-     */
-    public void orcFileStartWrite(RecordReceiver lineReceiver, Configuration config, String fileName,
-                                  TaskPluginCollector taskPluginCollector){
-        List<Configuration>  columns = config.getListConfiguration(Key.COLUMN);
-        String compress = config.getString(Key.COMPRESS, null);
-        List<String> columnNames = getColumnNames(columns);
-        List<ObjectInspector> columnTypeInspectors = getColumnTypeInspectors(columns);
-        StructObjectInspector inspector = (StructObjectInspector)ObjectInspectorFactory
-                .getStandardStructObjectInspector(columnNames, columnTypeInspectors);
-
-        OrcSerde orcSerde = new OrcSerde();
-
-        FileOutputFormat outFormat = new OrcOutputFormat();
-        if(!"NONE".equalsIgnoreCase(compress) && null != compress ) {
-            Class<? extends CompressionCodec> codecClass = getCompressCodec(compress);
-            if (null != codecClass) {
-                outFormat.setOutputCompressorClass(conf, codecClass);
-            }
-        }
-        try {
-            RecordWriter writer = outFormat.getRecordWriter(fileSystem, conf, fileName, Reporter.NULL);
-            Record record = null;
-            while ((record = lineReceiver.getFromReader()) != null) {
-                MutablePair<List<Object>, Boolean> transportResult =  transportOneRecord(record,columns,taskPluginCollector);
-                if (!transportResult.getRight()) {
-                    writer.write(NullWritable.get(), orcSerde.serialize(transportResult.getLeft(), inspector));
-                }
-            }
-            writer.close(Reporter.NULL);
-        } catch (Exception e) {
-            String message = String.format("写文件文件[%s]时发生IO异常,请检查您的网络是否正常！", fileName);
-            LOG.error(message);
-            Path path = new Path(fileName);
-            deleteDir(path.getParent());
-            throw DataXException.asDataXException(HdfsWriterErrorCode.Write_FILE_IO_ERROR, e);
-        }
-    }
-
-    /**
      * 分区写orcfile类型文件
      * @param lineReceiver
      * @param config
@@ -542,7 +377,7 @@ public  class HdfsHelper {
                     writer = outFormat.getRecordWriter(fileSystem, conf, partitonFileName, Reporter.NULL);
                     writerMap.put(ptDay, writer);
                 }
-                LOG.info(">>>>>>>outputPath is :" + partitonFileName);
+                // LOG.info(">>>>>>>outputPath is :" + partitonFileName);
                 if (!transportResult.getRight()) {
                     writer.write(NullWritable.get(), orcSerde.serialize(transportResult.getLeft(), inspector));
                 }
@@ -624,101 +459,6 @@ public  class HdfsHelper {
             columnTypeInspectors.add(objectInspector);
         }
         return columnTypeInspectors;
-    }
-
-    public OrcSerde getOrcSerde(Configuration config){
-        String fieldDelimiter = config.getString(Key.FIELD_DELIMITER);
-        String compress = config.getString(Key.COMPRESS);
-        String encoding = config.getString(Key.ENCODING);
-
-        OrcSerde orcSerde = new OrcSerde();
-        Properties properties = new Properties();
-        properties.setProperty("orc.bloom.filter.columns", fieldDelimiter);
-        properties.setProperty("orc.compress", compress);
-        properties.setProperty("orc.encoding.strategy", encoding);
-
-        orcSerde.initialize(conf, properties);
-        return orcSerde;
-    }
-
-    public static MutablePair<List<Object>, Boolean> transportOneRecord(
-            Record record,List<Configuration> columnsConfiguration,
-            TaskPluginCollector taskPluginCollector){
-
-        MutablePair<List<Object>, Boolean> transportResult = new MutablePair<List<Object>, Boolean>();
-        transportResult.setRight(false);
-        List<Object> recordList = Lists.newArrayList();
-        int recordLength = record.getColumnNumber();
-        if (0 != recordLength) {
-            Column column;
-            for (int i = 0; i < recordLength; i++) {
-                column = record.getColumn(i);
-                //todo as method
-                if (null != column.getRawData()) {
-                    String rowData = column.getRawData().toString();
-                    SupportHiveDataType columnType = SupportHiveDataType.valueOf(
-                            columnsConfiguration.get(i).getString(Key.TYPE).toUpperCase());
-                    //根据writer端类型配置做类型转换
-                    try {
-                        switch (columnType) {
-                            case TINYINT:
-                                recordList.add(Byte.valueOf(rowData));
-                                break;
-                            case SMALLINT:
-                                recordList.add(Short.valueOf(rowData));
-                                break;
-                            case INT:
-                                recordList.add(Integer.valueOf(rowData));
-                                break;
-                            case BIGINT:
-                                recordList.add(column.asLong());
-                                break;
-                            case FLOAT:
-                                recordList.add(Float.valueOf(rowData));
-                                break;
-                            case DOUBLE:
-                                recordList.add(column.asDouble());
-                                break;
-                            case STRING:
-                            case VARCHAR:
-                            case CHAR:
-                                recordList.add(column.asString());
-                                break;
-                            case BOOLEAN:
-                                recordList.add(column.asBoolean());
-                                break;
-                            case DATE:
-                                recordList.add(new java.sql.Date(column.asDate().getTime()));
-                                break;
-                            case TIMESTAMP:
-                                recordList.add(new java.sql.Timestamp(column.asDate().getTime()));
-                                break;
-                            default:
-                                throw DataXException
-                                        .asDataXException(
-                                                HdfsWriterErrorCode.ILLEGAL_VALUE,
-                                                String.format(
-                                                        "您的配置文件中的列配置信息有误. 因为DataX 不支持数据库写入这种字段类型. 字段名:[%s], 字段类型:[%d]. 请修改表中该字段的类型或者不同步该字段.",
-                                                        columnsConfiguration.get(i).getString(Key.NAME),
-                                                        columnsConfiguration.get(i).getString(Key.TYPE)));
-                        }
-                    } catch (Exception e) {
-                        // warn: 此处认为脏数据
-                        String message = String.format(
-                                "字段类型转换错误：你目标字段为[%s]类型，实际字段值为[%s].",
-                                columnsConfiguration.get(i).getString(Key.TYPE), column.getRawData().toString());
-                        taskPluginCollector.collectDirtyRecord(record, message);
-                        transportResult.setRight(true);
-                        break;
-                    }
-                }else {
-                    // warn: it's all ok if nullFormat is null
-                    recordList.add(null);
-                }
-            }
-        }
-        transportResult.setLeft(recordList);
-        return transportResult;
     }
 
     // orc file partition overwrite

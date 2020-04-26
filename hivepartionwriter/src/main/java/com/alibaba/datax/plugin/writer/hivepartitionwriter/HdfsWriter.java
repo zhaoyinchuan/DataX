@@ -201,8 +201,6 @@ public class HdfsWriter extends Writer {
         public List<Configuration> split(int mandatoryNumber) {
             LOG.info("begin do split...");
             List<Configuration> writerSplitConfigs = new ArrayList<Configuration>();
-            // String filePrefix = fileName;
-
             Set<String> allFiles = new HashSet<String>();
 
             //获取该路径下的所有已有文件列表
@@ -210,12 +208,6 @@ public class HdfsWriter extends Writer {
                 allFiles.addAll(Arrays.asList(hdfsHelper.hdfsDirList(path)));
             }
 
-           /* String fileSuffix;
-            //临时存放路径
-            String storePath =  buildTmpFilePath(this.path);
-            //最终存放路径
-            String endStorePath = buildFilePath();
-            this.path = endStorePath;*/
             for (int i = 0; i < mandatoryNumber; i++) {
                 // handle same file name
 
@@ -223,17 +215,8 @@ public class HdfsWriter extends Writer {
                 String fullFileName = null;
                 String endFullFileName = null;
 
-                //fileSuffix = UUID.randomUUID().toString().replace('-', '_');
-
                 fullFileName = String.format("%s%s", defaultFS, this.path);
                 endFullFileName = String.format("%s%s", defaultFS, this.path);
-
-                /*while (allFiles.contains(endFullFileName)) {
-                    fileSuffix = UUID.randomUUID().toString().replace('-', '_');
-                    fullFileName = String.format("%s%s%s__%s", defaultFS, storePath, filePrefix, fileSuffix);
-                    endFullFileName = String.format("%s%s%s__%s", defaultFS, endStorePath, filePrefix, fileSuffix);
-                }
-                allFiles.add(endFullFileName);*/
 
                 //设置临时文件全路径和最终文件全路径
                 if("GZIP".equalsIgnoreCase(this.compress)){
@@ -258,68 +241,6 @@ public class HdfsWriter extends Writer {
             }
             LOG.info("end do split.");
             return writerSplitConfigs;
-        }
-
-        private String buildFilePath() {
-            boolean isEndWithSeparator = false;
-            switch (IOUtils.DIR_SEPARATOR) {
-                case IOUtils.DIR_SEPARATOR_UNIX:
-                    isEndWithSeparator = this.path.endsWith(String
-                            .valueOf(IOUtils.DIR_SEPARATOR));
-                    break;
-                case IOUtils.DIR_SEPARATOR_WINDOWS:
-                    isEndWithSeparator = this.path.endsWith(String
-                            .valueOf(IOUtils.DIR_SEPARATOR_WINDOWS));
-                    break;
-                default:
-                    break;
-            }
-            if (!isEndWithSeparator) {
-                this.path = this.path + IOUtils.DIR_SEPARATOR;
-            }
-            return this.path;
-        }
-
-        /**
-         * 创建临时目录
-         * @param userPath
-         * @return
-         */
-        private String buildTmpFilePath(String userPath) {
-            String tmpFilePath;
-            boolean isEndWithSeparator = false;
-            switch (IOUtils.DIR_SEPARATOR) {
-                case IOUtils.DIR_SEPARATOR_UNIX:
-                    isEndWithSeparator = userPath.endsWith(String
-                            .valueOf(IOUtils.DIR_SEPARATOR));
-                    break;
-                case IOUtils.DIR_SEPARATOR_WINDOWS:
-                    isEndWithSeparator = userPath.endsWith(String
-                            .valueOf(IOUtils.DIR_SEPARATOR_WINDOWS));
-                    break;
-                default:
-                    break;
-            }
-            String tmpSuffix;
-            tmpSuffix = UUID.randomUUID().toString().replace('-', '_');
-            if (!isEndWithSeparator) {
-                tmpFilePath = String.format("%s__%s%s", userPath, tmpSuffix, IOUtils.DIR_SEPARATOR);
-            }else if("/".equals(userPath)){
-                tmpFilePath = String.format("%s__%s%s", userPath, tmpSuffix, IOUtils.DIR_SEPARATOR);
-            }else{
-                tmpFilePath = String.format("%s__%s%s", userPath.substring(0,userPath.length()-1), tmpSuffix, IOUtils.DIR_SEPARATOR);
-            }
-            while(hdfsHelper.isPathexists(tmpFilePath)){
-                tmpSuffix = UUID.randomUUID().toString().replace('-', '_');
-                if (!isEndWithSeparator) {
-                    tmpFilePath = String.format("%s__%s%s", userPath, tmpSuffix, IOUtils.DIR_SEPARATOR);
-                }else if("/".equals(userPath)){
-                    tmpFilePath = String.format("%s__%s%s", userPath, tmpSuffix, IOUtils.DIR_SEPARATOR);
-                }else{
-                    tmpFilePath = String.format("%s__%s%s", userPath.substring(0,userPath.length()-1), tmpSuffix, IOUtils.DIR_SEPARATOR);
-                }
-            }
-            return tmpFilePath;
         }
     }
 
