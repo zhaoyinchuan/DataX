@@ -238,7 +238,7 @@ public  class HdfsHelper {
      * @param taskPluginCollector
      */
     public void textFileStartWritePartition(RecordReceiver lineReceiver, Configuration config, String fileName,
-        TaskPluginCollector taskPluginCollector){
+        TaskPluginCollector taskPluginCollector, String writeMode){
         char fieldDelimiter = config.getChar(Key.FIELD_DELIMITER);
         List<Configuration>  columns = config.getListConfiguration(Key.COLUMN);
         String compress = config.getString(Key.COMPRESS,null);
@@ -253,10 +253,14 @@ public  class HdfsHelper {
                 MutablePair<Text, Boolean> transportResult = partitionResult.getTransportResult();
                 RecordWriter writer = writerMap.get(ptDay);
                 if (writer == null) {
+                    String partitionDir = fileName + "/pt_day=" + ptDay;
+                    if (writeMode.equalsIgnoreCase("truncate")) {
+                        LOG.info(String.format("由于您配置了writeMode truncate, 开始清理 [%s] 目录下的内容", partitionDir));
+                        this.deleteDir(new Path(partitionDir));
+                    }
                     StringBuilder partitonNameBuilder = new StringBuilder();
-                    partitonNameBuilder.append("/pt_day=").append(ptDay)
-                                       .append("/").append(ptDay).append("_").append(System.currentTimeMillis());
-                    partitonFileName = fileName + partitonNameBuilder.toString();
+                    partitonNameBuilder.append("/").append(ptDay).append("_").append(System.currentTimeMillis());
+                    partitonFileName = partitionDir + partitonNameBuilder.toString();
                     // LOG.info(">>>>>>>partitonFileName is :" + partitonFileName);
                     SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmm");
                     String attempt = "attempt_"+dateFormat.format(new Date())+"_0001_m_000000_0";
@@ -343,7 +347,7 @@ public  class HdfsHelper {
      * @param taskPluginCollector
      */
     public void orcFileStartWritePartition(RecordReceiver lineReceiver, Configuration config, String fileName,
-        TaskPluginCollector taskPluginCollector){
+        TaskPluginCollector taskPluginCollector, String writeMode){
         List<Configuration>  columns = config.getListConfiguration(Key.COLUMN);
         String compress = config.getString(Key.COMPRESS, null);
         List<String> columnNames = getColumnNames(columns);
@@ -370,10 +374,14 @@ public  class HdfsHelper {
                 MutablePair<List<Object>, Boolean> transportResult = partitionResult.getTransportResult();
                 RecordWriter writer = writerMap.get(ptDay);
                 if (writer == null) {
+                    String partitionDir = fileName + "/pt_day=" + ptDay;
+                    if (writeMode.equalsIgnoreCase("truncate")) {
+                        LOG.info(String.format("由于您配置了writeMode truncate, 开始清理 [%s] 目录下的内容", partitionDir));
+                        this.deleteDir(new Path(partitionDir));
+                    }
                     StringBuilder partitonNameBuilder = new StringBuilder();
-                    partitonNameBuilder.append("/pt_day=").append(ptDay)
-                                       .append("/").append(ptDay).append("_").append(System.currentTimeMillis());
-                    partitonFileName = fileName + partitonNameBuilder.toString();
+                    partitonNameBuilder.append("/").append(ptDay).append("_").append(System.currentTimeMillis());
+                    partitonFileName = partitionDir + partitonNameBuilder.toString();
                     writer = outFormat.getRecordWriter(fileSystem, conf, partitonFileName, Reporter.NULL);
                     writerMap.put(ptDay, writer);
                 }
@@ -480,7 +488,7 @@ public  class HdfsHelper {
                 if (null != column.getRawData()) {
                     String rowData = column.getRawData().toString();
                     if (i == 0) {
-                        partition = rowData; continue;
+                        partition = column.asString(); continue;
                     }
                     SupportHiveDataType columnType = SupportHiveDataType.valueOf(
                         columnsConfiguration.get(i).getString(Key.TYPE).toUpperCase());

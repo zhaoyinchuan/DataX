@@ -1,7 +1,6 @@
 package com.alibaba.datax.plugin.writer.hivepartitionwriter;
 
 import org.apache.commons.io.Charsets;
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
@@ -19,7 +18,6 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 
 public class HdfsWriter extends Writer {
     public static class Job extends Writer.Job {
@@ -166,8 +164,8 @@ public class HdfsWriter extends Writer {
                     isExistFile = true;
                 }
                 if ("truncate".equals(writeMode) && isExistFile ) {
-                     LOG.info(String.format("由于您配置了writeMode truncate, 开始清理 [%s] 下面以 [%s] 开头的内容", path, fileName));
-                     hdfsHelper.deleteFiles(existFilePaths);
+                     /*LOG.info(String.format("由于您配置了writeMode truncate, 开始清理 [%s] 下面以 [%s] 开头的内容", path, fileName));
+                     hdfsHelper.deleteFiles(existFilePaths);*/
                 } else if ("append".equalsIgnoreCase(writeMode)) {
                     LOG.info(String.format("由于您配置了writeMode append, 写入前不做清理工作, [%s] 目录下写入相应文件名前缀  [%s] 的文件",
                         path, fileName));
@@ -252,6 +250,7 @@ public class HdfsWriter extends Writer {
         private String defaultFS;
         private String fileType;
         private String fileName;
+        private String writeMode;
 
         private HdfsHelper hdfsHelper = null;
 
@@ -261,6 +260,8 @@ public class HdfsWriter extends Writer {
 
             this.defaultFS = this.writerSliceConfig.getString(Key.DEFAULT_FS);
             this.fileType = this.writerSliceConfig.getString(Key.FILE_TYPE);
+            this.writeMode = this.writerSliceConfig.getString(Key.WRITE_MODE);
+
             //得当的已经是绝对路径，eg：hdfs://10.101.204.12:9000/user/hive/warehouse/writer.db/text/test.textfile
             this.fileName = this.writerSliceConfig.getString(Key.FILE_NAME);
 
@@ -279,10 +280,10 @@ public class HdfsWriter extends Writer {
             LOG.info(String.format("write to file : [%s]", this.fileName));
             if(fileType.equalsIgnoreCase("TEXT")){
                 hdfsHelper.textFileStartWritePartition(lineReceiver,this.writerSliceConfig, this.fileName,
-                    this.getTaskPluginCollector());
+                    this.getTaskPluginCollector(), this.writeMode);
             }else if(fileType.equalsIgnoreCase("ORC")){
                 hdfsHelper.orcFileStartWritePartition(lineReceiver,this.writerSliceConfig, this.fileName,
-                    this.getTaskPluginCollector());
+                    this.getTaskPluginCollector(), this.writeMode);
             }
 
             LOG.info("end do write");
